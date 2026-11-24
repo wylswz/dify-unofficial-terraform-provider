@@ -11,7 +11,7 @@
 
 A Terraform provider for managing [Dify](https://dify.ai) applications, datasets, model and tool provider credentials, plugin installs, and app API keys as infrastructure-as-code.
 
-The provider talks to Dify's user-scoped OpenAPI (`/openapi/v1`) and authenticates with a **Personal Access Token (PAT)**
+The provider talks to Dify's user-scoped OpenAPI (`/openapi/v1`) and authenticates with a **Personal Access Token (PAT)**.
 
 ## Requirements
 
@@ -23,9 +23,7 @@ The provider talks to Dify's user-scoped OpenAPI (`/openapi/v1`) and authenticat
 
 ## Personal Access Token
 
-Create a PAT in the Dify console: **account settings → Personal Access Tokens**. The token acts as your user account, so it must have access to the workspace you manage — including workspace-scoped permissions for the operations you run (app import/export, credential management, plugin install, and so on). Treat it like a password.
-
-Pass the token to the provider through the `DIFY_TOKEN` environment variable (or a sensitive Terraform variable) rather than hardcoding it — the provider token itself is not persisted in state. Resource-level secrets are different: values Dify only returns once, such as `dify_app_api_key` tokens, credential secrets, and MCP headers, **are** marked `Sensitive` but still persist in Terraform state and plan files. Never share raw state or plan output.
+Create a PAT in the Dify console under **Account Settings > Personal Access Tokens**. The token needs access to the workspace you want to manage. Set it via `DIFY_TOKEN` or a sensitive Terraform variable rather than hardcoding it. Resource secrets can still be present in Terraform state and plan files; treat both as sensitive.
 
 ## Installing the Provider
 
@@ -60,49 +58,12 @@ provider "dify" {
 }
 ```
 
-A full end-to-end setup — model credentials with load balancing, tool providers, published workflow tools, and an agent orchestrator — lives in [`examples/complete/`](examples/complete/).
+## Documentation and Examples
 
-## Provider Configuration
-
-| Attribute | Environment Variable | Description | Required |
-|---|---|---|---|
-| `host` | `DIFY_HOST` | Dify base URL; the provider calls `<host>/openapi/v1` | No (defaults to `http://localhost`) |
-| `token` | `DIFY_TOKEN` | Personal Access Token (`Authorization: Bearer`) | Yes |
-| `workspace_id` | `DIFY_WORKSPACE_ID` | Workspace ID for resource operations; defaults to the token owner's default workspace (`GET /openapi/v1/account`) | No |
-
-The server rate-limits each token on `/openapi/v1` (`OPENAPI_RATE_LIMIT_PER_TOKEN`, default 60 requests/minute). The provider automatically backs off and retries on HTTP 429 using the response's `Retry-After` header.
-
-![Dependency Graph](img/plan.svg)
-
-## Resources
-
-Full, generated attribute-level specs for every resource and data source live in [`docs/`](docs/) ([`docs/resources/`](docs/resources/), [`docs/data-sources/`](docs/data-sources/)) — the same documentation the Terraform Registry renders.
-
-| Resource | Description |
-|---|---|
-| [`dify_app`](docs/resources/app.md) | Manage a Dify application via DSL YAML content |
-| [`dify_api_tool_provider`](docs/resources/api_tool_provider.md) | Manage a custom OpenAPI-schema tool provider |
-| [`dify_app_api_key`](docs/resources/app_api_key.md) | Manage an API key for a Dify application |
-| [`dify_dataset`](docs/resources/dataset.md) | Manage a knowledge base (dataset) |
-| [`dify_dataset_document`](docs/resources/dataset_document.md) | Manage documents in a dataset |
-| [`dify_dataset_document_indexing_wait`](docs/resources/dataset_document_indexing_wait.md) | Wait for dataset document indexing to complete |
-| [`dify_default_model`](docs/resources/default_model.md) | Set the workspace default model for a model type |
-| [`dify_mcp_provider`](docs/resources/mcp_provider.md) | Manage an MCP tool provider |
-| [`dify_model_credential`](docs/resources/model_credential.md) | Manage a credential for an individual model |
-| [`dify_model_provider_credential`](docs/resources/model_provider_credential.md) | Manage model provider credentials (e.g. an API key) |
-| [`dify_model_settings`](docs/resources/model_settings.md) | Manage a model's enabled state and load-balancing pool |
-| [`dify_plugin_install`](docs/resources/plugin_install.md) | Manage a plugin installation from the marketplace |
-| [`dify_tool_provider_credential`](docs/resources/tool_provider_credential.md) | Manage builtin tool provider credentials |
-| [`dify_workflow_tool`](docs/resources/workflow_tool.md) | Publish a workflow app as a workspace tool |
-
-## Data Sources
-
-| Data Source | Description |
-|---|---|
-| [`dify_app`](docs/data-sources/app.md) | Read a Dify application by `id` or exact `name` |
-| [`dify_models`](docs/data-sources/models.md) | List models available in the workspace |
-| [`dify_plugins`](docs/data-sources/plugins.md) | List all plugins installed in the workspace |
-| [`dify_tools`](docs/data-sources/tools.md) | List tools a workflow can call in the workspace |
+- [Provider configuration](docs/index.md)
+- [Resource reference](docs/resources/) and [data source reference](docs/data-sources/)
+- [Complete example](examples/complete/) for credentials, tools, and an agent workflow
+- [Knowledge base example](examples/knowledge-base/) for datasets, documents, and retrieval
 
 ## Developing the Provider
 
@@ -119,19 +80,6 @@ make generate   # terraform fmt examples + regenerate docs/ via tfplugindocs
 ```
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full development workflow, and [`CHANGELOG.md`](CHANGELOG.md) for release notes. Releases are automated with GoReleaser — see [`.github/workflows/release.yml`](.github/workflows/release.yml).
-
-## DSL YAML
-
-The `dify_app` resource uses Dify's DSL YAML format for defining applications. Export an existing app's DSL from the Dify console (or via `GET /openapi/v1/apps/<app_id>/dsl`), save it, and manage it in Terraform:
-
-```hcl
-resource "dify_app" "new_app" {
-  dsl_yaml = file("exported-app.yaml")
-  name     = "Cloned App"
-}
-```
-
-After apply, `exported_dsl_yaml` holds the server-normalized DSL — useful for reviewing drift between your `dsl_yaml` and what Dify actually stored. See [`dify_app`](docs/resources/app.md) for the full attribute spec and import instructions.
 
 ## License
 
