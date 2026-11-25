@@ -54,20 +54,16 @@ type DatasetCreateRequest struct {
 	SummaryIndexSetting    *json.RawMessage `json:"summary_index_setting,omitempty"`
 }
 
-// DatasetUpdateRequest is the payload for PATCH /datasets/{id}.
+// DatasetUpdateRequest is the payload for PATCH /datasets/{id}. Indexing and
+// provider settings are creation-only and are not accepted here.
 type DatasetUpdateRequest struct {
-	Name                   *string             `json:"name,omitempty"`
-	Description            *string             `json:"description,omitempty"`
-	IndexingTechnique      *string             `json:"indexing_technique,omitempty"`
-	Permission             *string             `json:"permission,omitempty"`
-	Provider               *string             `json:"provider,omitempty"`
-	EmbeddingModel         *string             `json:"embedding_model,omitempty"`
-	EmbeddingModelProvider *string             `json:"embedding_model_provider,omitempty"`
-	RetrievalModel         *json.RawMessage    `json:"retrieval_model,omitempty"`
-	PartialMemberList      []map[string]string `json:"partial_member_list,omitempty"`
-	ExternalRetrievalModel *json.RawMessage    `json:"external_retrieval_model,omitempty"`
-	ExternalKnowledgeId    *string             `json:"external_knowledge_id,omitempty"`
-	ExternalKnowledgeAPIId *string             `json:"external_knowledge_api_id,omitempty"`
+	Name                   *string          `json:"name,omitempty"`
+	Description            *string          `json:"description,omitempty"`
+	Permission             *string          `json:"permission,omitempty"`
+	RetrievalModel         *json.RawMessage `json:"retrieval_model,omitempty"`
+	ExternalRetrievalModel *json.RawMessage `json:"external_retrieval_model,omitempty"`
+	ExternalKnowledgeId    *string          `json:"external_knowledge_id,omitempty"`
+	ExternalKnowledgeAPIId *string          `json:"external_knowledge_api_id,omitempty"`
 }
 
 // CreateDataset creates a knowledge base (201 with the dataset payload).
@@ -184,18 +180,21 @@ type DocumentCreateRequest struct {
 
 // DocumentUpdateRequest is the payload for POST /datasets/{dataset_id}/documents/{document_id}:updateByText.
 type DocumentUpdateRequest struct {
-	Name           *string          `json:"name,omitempty"`
-	Text           *string          `json:"text,omitempty"`
-	ProcessRule    *json.RawMessage `json:"process_rule,omitempty"`
-	DocForm        *string          `json:"doc_form,omitempty"`
-	DocLanguage    *string          `json:"doc_language,omitempty"`
-	RetrievalModel *json.RawMessage `json:"retrieval_model,omitempty"`
+	Name        *string          `json:"name,omitempty"`
+	Text        *string          `json:"text,omitempty"`
+	ProcessRule *json.RawMessage `json:"process_rule,omitempty"`
+	DocForm     *string          `json:"doc_form,omitempty"`
 }
 
-// DocumentAndBatch is the response of create-by-text / update-by-text.
+// DocumentAndBatch is the response of create-by-text.
 type DocumentAndBatch struct {
 	Document Document `json:"document"`
 	Batch    string   `json:"batch"`
+}
+
+// DocumentUpdateResponse is the response of update-by-text.
+type DocumentUpdateResponse struct {
+	Document Document `json:"document"`
 }
 
 // CreateDocument creates a document from text (200 with document + batch).
@@ -217,8 +216,8 @@ func (c *DifyClient) GetDocument(ctx context.Context, datasetID, documentID stri
 }
 
 // UpdateDocument updates a document's text/config by id within a dataset.
-func (c *DifyClient) UpdateDocument(ctx context.Context, datasetID, documentID string, req DocumentUpdateRequest) (*DocumentAndBatch, error) {
-	var result DocumentAndBatch
+func (c *DifyClient) UpdateDocument(ctx context.Context, datasetID, documentID string, req DocumentUpdateRequest) (*DocumentUpdateResponse, error) {
+	var result DocumentUpdateResponse
 	if err := c.doJSON(ctx, http.MethodPost, c.workspaceURL("/datasets/"+url.PathEscape(datasetID)+"/documents/"+url.PathEscape(documentID)+":updateByText"), req, &result); err != nil {
 		return nil, err
 	}

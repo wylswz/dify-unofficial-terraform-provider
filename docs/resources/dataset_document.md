@@ -54,7 +54,7 @@ resource "dify_dataset_document_indexing_wait" "wait" {
 ### Optional
 
 - `doc_form` (String) `text_model` for standard text chunking, `hierarchical_model` for parent-child chunk structure, `qa_model` for question-answer pair extraction.
-- `doc_language` (String) Language of the document for processing optimization.
+- `doc_language` (String) Language of the document for processing optimization. Creation-only: changing this forces recreation.
 - `embedding_model` (String) Embedding model name.
 - `embedding_model_provider` (String) Embedding model provider.
 - `indexing_poll_interval` (Number) Seconds between indexing status polls when `indexing_wait` is true.
@@ -62,7 +62,7 @@ resource "dify_dataset_document_indexing_wait" "wait" {
 - `indexing_timeout` (Number) Maximum seconds to wait for indexing to finish when `indexing_wait` is true.
 - `indexing_wait` (Boolean) Whether Create/Update block until the document's indexing reaches `available`.
 - `process_rule` (String) Processing rules for chunking as a JSON string.
-- `retrieval_model` (String) Retrieval model configuration as a JSON string.
+- `retrieval_model` (String) Retrieval model configuration as a JSON string. Creation-only: changing this forces recreation.
 - `text` (String, Sensitive) Document text content. Write-only and sensitive.
 
 ### Read-Only
