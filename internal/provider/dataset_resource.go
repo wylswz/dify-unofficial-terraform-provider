@@ -74,30 +74,41 @@ func (r *DatasetResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:            true,
 			},
 			"indexing_technique": schema.StringAttribute{
-				MarkdownDescription: "`high_quality` uses embedding models for precise search; `economy` uses keyword-based indexing.",
+				MarkdownDescription: "`high_quality` uses embedding models for precise search; `economy` uses keyword-based indexing. Creation-only: changing this forces recreation.",
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString("high_quality"),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"permission": schema.StringAttribute{
-				MarkdownDescription: "`only_me` restricts access to the creator, `all_team_members` grants workspace-wide access, `partial_members` grants access to specified members.",
+				MarkdownDescription: "Legacy permission: `only_me` restricts access to the creator and `all_team_members` grants workspace-wide access. Member lists are not managed by Terraform. Defaults are decided by the API. When RBAC is enabled the server ignores this field and access is managed by RBAC policy separately.",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString("only_me"),
 			},
 			"provider_type": schema.StringAttribute{
-				MarkdownDescription: "`vendor` for internal knowledge bases, `external` for external ones.",
+				MarkdownDescription: "`vendor` for internal knowledge bases, `external` for external ones. Creation-only: changing this forces recreation.",
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString("vendor"),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"embedding_model": schema.StringAttribute{
-				MarkdownDescription: "Embedding model name. Use the `model` field from Get Available Models with `model_type=text-embedding`.",
+				MarkdownDescription: "Embedding model name. Use the `model` field from Get Available Models with `model_type=text-embedding`. Creation-only: changing this forces recreation.",
 				Optional:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"embedding_model_provider": schema.StringAttribute{
-				MarkdownDescription: "Embedding model provider. Use the `provider` field from Get Available Models with `model_type=text-embedding`.",
+				MarkdownDescription: "Embedding model provider. Use the `provider` field from Get Available Models with `model_type=text-embedding`. Creation-only: changing this forces recreation.",
 				Optional:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"retrieval_model": schema.StringAttribute{
 				MarkdownDescription: "Retrieval model configuration as a JSON string. Controls how chunks are searched and ranked.",
@@ -177,7 +188,8 @@ func (m *DatasetResourceModel) request() DatasetCreateRequest {
 	return req
 }
 
-// updateRequest converts the model to the PATCH payload.
+// updateRequest converts the model to the PATCH payload. Indexing technique,
+// provider type, and the embedding model pair are creation-only and never sent.
 func (m *DatasetResourceModel) updateRequest() DatasetUpdateRequest {
 	req := DatasetUpdateRequest{}
 	if !m.Name.IsNull() {
@@ -186,20 +198,8 @@ func (m *DatasetResourceModel) updateRequest() DatasetUpdateRequest {
 	if known(m.Description) {
 		req.Description = stringPointer(m.Description.ValueString())
 	}
-	if known(m.IndexingTechnique) {
-		req.IndexingTechnique = stringPointer(m.IndexingTechnique.ValueString())
-	}
 	if known(m.Permission) {
 		req.Permission = stringPointer(m.Permission.ValueString())
-	}
-	if known(m.Provider) {
-		req.Provider = stringPointer(m.Provider.ValueString())
-	}
-	if known(m.EmbeddingModel) {
-		req.EmbeddingModel = stringPointer(m.EmbeddingModel.ValueString())
-	}
-	if known(m.EmbeddingModelProvider) {
-		req.EmbeddingModelProvider = stringPointer(m.EmbeddingModelProvider.ValueString())
 	}
 	if known(m.RetrievalModel) {
 		raw := json.RawMessage(m.RetrievalModel.ValueString())
@@ -299,13 +299,22 @@ func (r *DatasetResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 func (r *DatasetResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data DatasetResourceModel
+	var prior DatasetResourceModel
 
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &prior)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	result, err := r.client.UpdateDataset(ctx, data.ID.ValueString(), data.updateRequest())
+	payload := data.updateRequest()
+	// Only an explicitly changed permission reaches PATCH so RBAC-managed
+	// workspaces can rename datasets without tripping the legacy field.
+	if data.Permission.Equal(prior.Permission) {
+		payload.Permission = nil
+	}
+
+	result, err := r.client.UpdateDataset(ctx, data.ID.ValueString(), payload)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update dataset: %s", err))
 		return

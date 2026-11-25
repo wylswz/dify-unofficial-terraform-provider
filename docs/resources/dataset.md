@@ -71,13 +71,13 @@ resource "dify_dataset_document_indexing_wait" "wait" {
 ### Optional
 
 - `description` (String) Description of the knowledge base.
-- `embedding_model` (String) Embedding model name. Use the `model` field from Get Available Models with `model_type=text-embedding`.
-- `embedding_model_provider` (String) Embedding model provider. Use the `provider` field from Get Available Models with `model_type=text-embedding`.
+- `embedding_model` (String) Embedding model name. Use the `model` field from Get Available Models with `model_type=text-embedding`. Creation-only: changing this forces recreation.
+- `embedding_model_provider` (String) Embedding model provider. Use the `provider` field from Get Available Models with `model_type=text-embedding`. Creation-only: changing this forces recreation.
 - `external_knowledge_api_id` (String) ID of the external knowledge API (when `provider` is `external`).
 - `external_knowledge_id` (String) ID of the external knowledge base (when `provider` is `external`).
-- `indexing_technique` (String) `high_quality` uses embedding models for precise search; `economy` uses keyword-based indexing.
-- `permission` (String) `only_me` restricts access to the creator, `all_team_members` grants workspace-wide access, `partial_members` grants access to specified members.
-- `provider_type` (String) `vendor` for internal knowledge bases, `external` for external ones.
+- `indexing_technique` (String) `high_quality` uses embedding models for precise search; `economy` uses keyword-based indexing. Creation-only: changing this forces recreation.
+- `permission` (String) Legacy permission: `only_me` restricts access to the creator and `all_team_members` grants workspace-wide access. Member lists are not managed by Terraform. Defaults are decided by the API. When RBAC is enabled the server ignores this field and access is managed by RBAC policy separately.
+- `provider_type` (String) `vendor` for internal knowledge bases, `external` for external ones. Creation-only: changing this forces recreation.
 - `retrieval_model` (String) Retrieval model configuration as a JSON string. Controls how chunks are searched and ranked.
 
 ### Read-Only

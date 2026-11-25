@@ -109,18 +109,24 @@ func (r *DocumentResource) Schema(ctx context.Context, req resource.SchemaReques
 				Default:             stringdefault.StaticString("text_model"),
 			},
 			"doc_language": schema.StringAttribute{
-				MarkdownDescription: "Language of the document for processing optimization.",
+				MarkdownDescription: "Language of the document for processing optimization. Creation-only: changing this forces recreation.",
 				Optional:            true,
 				Computed:            true,
 				Default:             stringdefault.StaticString("English"),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"indexing_technique": schema.StringAttribute{
 				MarkdownDescription: "`high_quality` uses embedding models for precise search; `economy` uses keyword-based indexing. Required when adding the first document to a knowledge base.",
 				Optional:            true,
 			},
 			"retrieval_model": schema.StringAttribute{
-				MarkdownDescription: "Retrieval model configuration as a JSON string.",
+				MarkdownDescription: "Retrieval model configuration as a JSON string. Creation-only: changing this forces recreation.",
 				Optional:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"embedding_model": schema.StringAttribute{
 				MarkdownDescription: "Embedding model name.",
@@ -226,6 +232,7 @@ func (m *DocumentResourceModel) request() DocumentCreateRequest {
 }
 
 // updateRequest converts the model to the update-by-text API payload.
+// doc_language and retrieval_model are creation-only and never sent.
 func (m *DocumentResourceModel) updateRequest() DocumentUpdateRequest {
 	req := DocumentUpdateRequest{}
 	if known(m.Name) {
@@ -240,13 +247,6 @@ func (m *DocumentResourceModel) updateRequest() DocumentUpdateRequest {
 	}
 	if known(m.DocForm) {
 		req.DocForm = stringPointer(m.DocForm.ValueString())
-	}
-	if known(m.DocLanguage) {
-		req.DocLanguage = stringPointer(m.DocLanguage.ValueString())
-	}
-	if known(m.RetrievalModel) {
-		raw := json.RawMessage(m.RetrievalModel.ValueString())
-		req.RetrievalModel = &raw
 	}
 	return req
 }

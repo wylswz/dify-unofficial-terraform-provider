@@ -116,6 +116,47 @@ func TestAccDatasetLifecycle(t *testing.T) {
 		t.Fatalf("workflow outputs missing retrieved content: %s", string(outputs))
 	}
 
+	// Replace one document's content in place: the resource must update the
+	// existing document (same id) rather than recreate it.
+	docs, err := client.ListDocuments(ctx, datasetID)
+	if err != nil {
+		t.Fatalf("listing documents in %q: %v", datasetID, err)
+	}
+	var knowledgeDocID string
+	for _, doc := range docs {
+		if doc.Name == "knowledge.md" {
+			knowledgeDocID = doc.ID
+		}
+	}
+	if knowledgeDocID == "" {
+		t.Fatalf("expected knowledge.md document in dataset %q, got %v", datasetID, docs)
+	}
+
+	mdPath := filepath.Join(dir, "docs", "knowledge.md")
+	if err := os.WriteFile(mdPath, []byte("# Updated\n\nupdated acceptance document content\n"), 0o644); err != nil {
+		t.Fatalf("rewriting %s: %v", mdPath, err)
+	}
+	mustTF(t, ctx, dir, env, append([]string{"apply", "-auto-approve", "-input=false"}, varArgs...)...)
+
+	updatedDoc, err := client.WaitForDocumentIndexing(ctx, datasetID, knowledgeDocID, 5*time.Minute, 3*time.Second)
+	if err != nil {
+		t.Fatalf("waiting for re-indexed document %q: %v", knowledgeDocID, err)
+	}
+	if updatedDoc.ID != knowledgeDocID {
+		t.Fatalf("expected in-place update of %q, got document %q", knowledgeDocID, updatedDoc.ID)
+	}
+
+	// The retrieval workflow must now serve the updated content.
+	outputs, err = client.RunWorkflow(ctx, appID, WorkflowRunRequest{
+		Inputs: map[string]any{"query": "updated acceptance document content"},
+	})
+	if err != nil {
+		t.Fatalf("running retrieval workflow %q after update: %v", appID, err)
+	}
+	if !containsSubstring(string(outputs), "updated acceptance document content") {
+		t.Fatalf("workflow outputs missing updated content: %s", string(outputs))
+	}
+
 	// Destroy, then confirm the dataset is gone remotely.
 	destroyArgs := append([]string{"destroy", "-auto-approve", "-input=false"}, varArgs...)
 	mustTF(t, ctx, dir, env, destroyArgs...)
